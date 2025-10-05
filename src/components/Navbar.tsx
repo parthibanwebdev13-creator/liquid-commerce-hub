@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Heart, User, LogOut, LayoutDashboard } from 'lucide-react';
+import { ShoppingCart, Heart, User, LogOut, LayoutDashboard, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -92,7 +92,15 @@ export default function Navbar() {
                 </DropdownMenu>
               </>
             ) : (
-              <Button onClick={() => navigate('/auth')}>Login</Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => navigate('/auth')}>
+                  Login
+                </Button>
+                <Button variant="default" onClick={() => navigate('/auth?admin=true')} className="hidden md:flex">
+                  <Shield className="mr-2 h-4 w-4" />
+                  Admin Login
+                </Button>
+              </div>
             )}
           </div>
         </div>
