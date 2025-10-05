@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,9 @@ const signInSchema = z.object({
 
 export default function Auth() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
+  const isAdminLogin = searchParams.get('admin') === 'true';
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -75,12 +77,32 @@ export default function Auth() {
     try {
       signInSchema.parse(data);
 
-      const { error } = await supabase.auth.signInWithPassword(data);
+      const { error, data: authData } = await supabase.auth.signInWithPassword(data);
 
       if (error) throw error;
 
-      toast.success('Signed in successfully!');
-      navigate('/');
+      // Check if user has admin role
+      if (isAdminLogin) {
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', authData.user.id)
+          .eq('role', 'admin')
+          .single();
+
+        if (!roleData) {
+          await supabase.auth.signOut();
+          toast.error('Access denied. Admin privileges required.');
+          setLoading(false);
+          return;
+        }
+
+        toast.success('Admin login successful!');
+        navigate('/admin/dashboard');
+      } else {
+        toast.success('Signed in successfully!');
+        navigate('/');
+      }
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
@@ -99,15 +121,21 @@ export default function Auth() {
           <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl font-bold text-primary-foreground">O</span>
           </div>
-          <CardTitle className="text-2xl">Welcome to OilMart</CardTitle>
-          <CardDescription>Premium quality oils for your kitchen</CardDescription>
+          <CardTitle className="text-2xl">
+            {isAdminLogin ? 'Admin Login' : 'Welcome to OilMart'}
+          </CardTitle>
+          <CardDescription>
+            {isAdminLogin ? 'Access the admin dashboard' : 'Premium quality oils for your kitchen'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
+            {!isAdminLogin && (
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="signin">Sign In</TabsTrigger>
+                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              </TabsList>
+            )}
             
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-4">
@@ -136,6 +164,7 @@ export default function Auth() {
               </form>
             </TabsContent>
             
+            {!isAdminLogin && (
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
@@ -173,6 +202,7 @@ export default function Auth() {
                 </Button>
               </form>
             </TabsContent>
+            )}
           </Tabs>
         </CardContent>
       </Card>
