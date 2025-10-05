@@ -161,6 +161,28 @@ export default function Auth() {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Signing in...' : 'Sign In'}
                 </Button>
+                {!isAdminLogin && (
+                  <div className="text-center mt-4">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/auth?admin=true')}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Login as Admin
+                    </button>
+                  </div>
+                )}
+                {isAdminLogin && (
+                  <div className="text-center mt-4">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/auth')}
+                      className="text-sm text-muted-foreground hover:underline"
+                    >
+                      ← Back to regular login
+                    </button>
+                  </div>
+                )}
               </form>
             </TabsContent>
             
