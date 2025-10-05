@@ -13,9 +13,28 @@ export default function AdminOrders() {
   const { data: orders } = useQuery({
     queryKey: ['admin-orders'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('orders').select('*, order_items(*), profiles(email, full_name)').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .order('created_at', { ascending: false });
+      
+      if (ordersError) throw ordersError;
+      
+      // Fetch profiles for all orders
+      const userIds = [...new Set(ordersData?.map(o => o.user_id) || [])];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .in('id', userIds);
+      
+      // Map profiles to orders
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p]));
+      const ordersWithProfiles = ordersData?.map(order => ({
+        ...order,
+        profile: profilesMap.get(order.user_id)
+      }));
+      
+      return ordersWithProfiles;
     },
   });
 
@@ -39,7 +58,7 @@ export default function AdminOrders() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p>Customer: {order.profiles?.email}</p>
+                <p>Customer: {order.profile?.email || 'N/A'}</p>
                 <p>Total: ₹{order.final_amount}</p>
                 <p>Items: {order.order_items?.length}</p>
               </CardContent>
