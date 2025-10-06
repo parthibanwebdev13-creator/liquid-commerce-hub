@@ -18,19 +18,14 @@ export default function AdminProducts() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    sku: '',
-    category: '',
-    short_description: '',
     description: '',
-    tags: '',
-    base_price: '',
     price_per_litre: '',
-    quantity_litres: '5',
     offer_price_per_litre: '',
     stock_quantity: '',
-    low_stock_alert: '10',
     image_url: '',
     is_active: true,
   });
@@ -44,11 +39,42 @@ export default function AdminProducts() {
     },
   });
 
+  const handleImageUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath);
+
+      setFormData({ ...formData, image_url: publicUrl });
+      toast.success('Image uploaded successfully');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload image');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const createProductMutation = useMutation({
     mutationFn: async () => {
+      if (!formData.name || !formData.price_per_litre || !formData.stock_quantity) {
+        throw new Error('Please fill in all required fields');
+      }
+
       const { error } = await supabase.from('products').insert({
         name: formData.name,
-        description: formData.description,
+        description: formData.description || null,
         image_url: formData.image_url || null,
         price_per_litre: parseFloat(formData.price_per_litre),
         offer_price_per_litre: formData.offer_price_per_litre ? parseFloat(formData.offer_price_per_litre) : null,
@@ -61,19 +87,22 @@ export default function AdminProducts() {
       toast.success('Product created successfully');
       setShowAddForm(false);
       setFormData({ 
-        name: '', sku: '', category: '', short_description: '', description: '', tags: '',
-        base_price: '', price_per_litre: '', quantity_litres: '5', offer_price_per_litre: '',
-        stock_quantity: '', low_stock_alert: '10', image_url: '', is_active: true 
+        name: '',
+        description: '',
+        price_per_litre: '',
+        offer_price_per_litre: '',
+        stock_quantity: '',
+        image_url: '',
+        is_active: true 
       });
+      setImageFile(null);
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to create product');
     },
   });
 
-  const calculateTotalPrice = () => {
-    const pricePerLitre = parseFloat(formData.price_per_litre) || 0;
-    const quantity = parseFloat(formData.quantity_litres) || 0;
-    return (pricePerLitre * quantity).toFixed(2);
-  };
 
   if (!isAdmin) {
     navigate('/');
@@ -102,35 +131,29 @@ export default function AdminProducts() {
           <h1 className="text-3xl font-bold mb-8">Add New Product</h1>
 
           <div className="grid lg:grid-cols-2 gap-6 mb-6">
-            {/* Left Column - Product Identification */}
+            {/* Left Column - Product Details */}
             <Card>
               <CardHeader>
-                <CardTitle>Product Identification & Description</CardTitle>
+                <CardTitle>Product Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <Label>Product Name <span className="text-destructive">*</span></Label>
-                  <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Enter product name" />
+                  <Input 
+                    value={formData.name} 
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
+                    placeholder="Enter product name" 
+                    required
+                  />
                 </div>
                 <div>
-                  <Label>SKU/Product Code</Label>
-                  <Input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} placeholder="Enter SKU" />
-                </div>
-                <div>
-                  <Label>Category <span className="text-destructive">*</span></Label>
-                  <Input value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} placeholder="Enter category" />
-                </div>
-                <div>
-                  <Label>Short Description</Label>
-                  <Input value={formData.short_description} onChange={(e) => setFormData({ ...formData, short_description: e.target.value })} placeholder="Brief description" />
-                </div>
-                <div>
-                  <Label>Full Description</Label>
-                  <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Detailed product description" rows={4} />
-                </div>
-                <div>
-                  <Label>Tags/Keywords</Label>
-                  <Input value={formData.tags} onChange={(e) => setFormData({ ...formData, tags: e.target.value })} placeholder="Comma separated tags" />
+                  <Label>Description</Label>
+                  <Textarea 
+                    value={formData.description} 
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })} 
+                    placeholder="Detailed product description" 
+                    rows={6} 
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -138,40 +161,39 @@ export default function AdminProducts() {
             {/* Right Column - Pricing & Inventory */}
             <Card>
               <CardHeader>
-                <CardTitle>Pricing & Inventory (Liters Focused)</CardTitle>
+                <CardTitle>Pricing & Inventory</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label>Base Price (₹)</Label>
-                  <Input type="number" value={formData.base_price} onChange={(e) => setFormData({ ...formData, base_price: e.target.value })} placeholder="650.00" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Quantity (Liters)</Label>
-                    <Input type="number" value={formData.quantity_litres} onChange={(e) => setFormData({ ...formData, quantity_litres: e.target.value })} placeholder="5" />
-                  </div>
-                  <div>
-                    <Label>Price per Liter (₹) <span className="text-destructive">*</span></Label>
-                    <Input type="number" value={formData.price_per_litre} onChange={(e) => setFormData({ ...formData, price_per_litre: e.target.value })} placeholder="3250.00" />
-                  </div>
-                </div>
-                <div>
-                  <Label>Total Price (Calculated)</Label>
-                  <Input value={`₹${calculateTotalPrice()}`} disabled className="bg-muted" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Quantity in Stock <span className="text-destructive">*</span></Label>
-                    <Input type="number" value={formData.stock_quantity} onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })} placeholder="150" />
-                  </div>
-                  <div>
-                    <Label>Low Stock Alert at</Label>
-                    <Input type="number" value={formData.low_stock_alert} onChange={(e) => setFormData({ ...formData, low_stock_alert: e.target.value })} placeholder="10" />
-                  </div>
+                  <Label>Price per Liter (₹) <span className="text-destructive">*</span></Label>
+                  <Input 
+                    type="number" 
+                    step="0.01"
+                    value={formData.price_per_litre} 
+                    onChange={(e) => setFormData({ ...formData, price_per_litre: e.target.value })} 
+                    placeholder="130.00" 
+                    required
+                  />
                 </div>
                 <div>
                   <Label>Offer Price per Liter (₹)</Label>
-                  <Input type="number" value={formData.offer_price_per_litre} onChange={(e) => setFormData({ ...formData, offer_price_per_litre: e.target.value })} placeholder="Optional discount price" />
+                  <Input 
+                    type="number" 
+                    step="0.01"
+                    value={formData.offer_price_per_litre} 
+                    onChange={(e) => setFormData({ ...formData, offer_price_per_litre: e.target.value })} 
+                    placeholder="Optional discount price" 
+                  />
+                </div>
+                <div>
+                  <Label>Stock Quantity (Liters) <span className="text-destructive">*</span></Label>
+                  <Input 
+                    type="number" 
+                    value={formData.stock_quantity} 
+                    onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })} 
+                    placeholder="150" 
+                    required
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -185,16 +207,39 @@ export default function AdminProducts() {
             <CardContent>
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label>Product Image(s)</Label>
+                  <Label>Product Image</Label>
                   <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
                     <Upload className="w-12 h-12 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground mb-2">Drag & Drop Uploader</p>
-                    <Input type="text" value={formData.image_url} onChange={(e) => setFormData({ ...formData, image_url: e.target.value })} placeholder="Or paste image URL" className="mt-2" />
+                    <p className="text-sm text-muted-foreground mb-2">Upload Product Image</p>
+                    <Input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setImageFile(file);
+                          handleImageUpload(file);
+                        }
+                      }}
+                      className="mt-2"
+                      disabled={uploading}
+                    />
+                    {uploading && <p className="text-sm text-muted-foreground mt-2">Uploading...</p>}
+                    {formData.image_url && (
+                      <div className="mt-4">
+                        <img src={formData.image_url} alt="Preview" className="w-full h-32 object-cover rounded" />
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <Label>Visible on Website</Label>
-                  <Switch checked={formData.is_active} onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })} />
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label>Visible on Website</Label>
+                    <Switch 
+                      checked={formData.is_active} 
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })} 
+                    />
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -202,11 +247,22 @@ export default function AdminProducts() {
 
           {/* Action Buttons */}
           <div className="flex justify-center gap-4">
-            <Button onClick={() => createProductMutation.mutate()} size="lg" className="bg-green-600 hover:bg-green-700">
-              Save Product
+            <Button 
+              onClick={() => createProductMutation.mutate()} 
+              size="lg" 
+              disabled={createProductMutation.isPending || uploading}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {createProductMutation.isPending ? 'Saving...' : 'Save Product'}
             </Button>
-            <Button variant="secondary" size="lg">Save Draft</Button>
-            <Button variant="destructive" size="lg" onClick={() => setShowAddForm(false)}>Cancel</Button>
+            <Button 
+              variant="destructive" 
+              size="lg" 
+              onClick={() => setShowAddForm(false)}
+              disabled={createProductMutation.isPending || uploading}
+            >
+              Cancel
+            </Button>
           </div>
         </div>
       </div>
