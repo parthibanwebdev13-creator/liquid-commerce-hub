@@ -3,8 +3,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ArrowLeft } from 'lucide-react';
 
 export default function AdminOrders() {
   const { isAdmin } = useAuth();
@@ -47,6 +49,11 @@ export default function AdminOrders() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
+        <Button variant="ghost" onClick={() => navigate('/admin')} className="mb-6">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Dashboard
+        </Button>
+
         <h1 className="text-3xl font-bold mb-8">Manage Orders</h1>
         <div className="space-y-4">
           {orders?.map((order) => (

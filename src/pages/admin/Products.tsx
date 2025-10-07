@@ -10,14 +10,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ChevronRight, Upload } from 'lucide-react';
+import { ChevronRight, Upload, ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 
 export default function AdminProducts() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
@@ -72,20 +74,34 @@ export default function AdminProducts() {
         throw new Error('Please fill in all required fields');
       }
 
-      const { error } = await supabase.from('products').insert({
-        name: formData.name,
-        description: formData.description || null,
-        image_url: formData.image_url || null,
-        price_per_litre: parseFloat(formData.price_per_litre),
-        offer_price_per_litre: formData.offer_price_per_litre ? parseFloat(formData.offer_price_per_litre) : null,
-        stock_quantity: parseInt(formData.stock_quantity),
-        is_active: formData.is_active,
-      });
-      if (error) throw error;
+      if (editingProduct) {
+        const { error } = await supabase.from('products').update({
+          name: formData.name,
+          description: formData.description || null,
+          image_url: formData.image_url || null,
+          price_per_litre: parseFloat(formData.price_per_litre),
+          offer_price_per_litre: formData.offer_price_per_litre ? parseFloat(formData.offer_price_per_litre) : null,
+          stock_quantity: parseInt(formData.stock_quantity),
+          is_active: formData.is_active,
+        }).eq('id', editingProduct.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('products').insert({
+          name: formData.name,
+          description: formData.description || null,
+          image_url: formData.image_url || null,
+          price_per_litre: parseFloat(formData.price_per_litre),
+          offer_price_per_litre: formData.offer_price_per_litre ? parseFloat(formData.offer_price_per_litre) : null,
+          stock_quantity: parseInt(formData.stock_quantity),
+          is_active: formData.is_active,
+        });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success('Product created successfully');
+      toast.success(editingProduct ? 'Product updated successfully' : 'Product created successfully');
       setShowAddForm(false);
+      setEditingProduct(null);
       setFormData({ 
         name: '',
         description: '',
@@ -99,9 +115,37 @@ export default function AdminProducts() {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create product');
+      toast.error(error.message || 'Failed to save product');
     },
   });
+
+  const deleteProductMutation = useMutation({
+    mutationFn: async (productId: string) => {
+      const { error } = await supabase.from('products').delete().eq('id', productId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Product deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete product');
+    },
+  });
+
+  const handleEdit = (product: any) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name,
+      description: product.description || '',
+      price_per_litre: product.price_per_litre.toString(),
+      offer_price_per_litre: product.offer_price_per_litre?.toString() || '',
+      stock_quantity: product.stock_quantity.toString(),
+      image_url: product.image_url || '',
+      is_active: product.is_active,
+    });
+    setShowAddForm(true);
+  };
 
 
   if (!isAdmin) {
@@ -119,16 +163,29 @@ export default function AdminProducts() {
       <div className="min-h-screen bg-background">
         <Navbar />
         <div className="container mx-auto px-4 py-8 max-w-7xl">
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-            <button onClick={() => navigate('/admin/dashboard')} className="hover:text-foreground">Dashboard</button>
-            <ChevronRight className="w-4 h-4" />
-            <button onClick={() => setShowAddForm(false)} className="hover:text-foreground">Products</button>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-foreground">Add New Product</span>
-          </div>
+          {/* Back Button */}
+          <Button 
+            variant="ghost" 
+            onClick={() => {
+              setShowAddForm(false);
+              setEditingProduct(null);
+              setFormData({
+                name: '',
+                description: '',
+                price_per_litre: '',
+                offer_price_per_litre: '',
+                stock_quantity: '',
+                image_url: '',
+                is_active: true,
+              });
+            }}
+            className="mb-6"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Products
+          </Button>
 
-          <h1 className="text-3xl font-bold mb-8">Add New Product</h1>
+          <h1 className="text-3xl font-bold mb-8">{editingProduct ? 'Edit Product' : 'Add New Product'}</h1>
 
           <div className="grid lg:grid-cols-2 gap-6 mb-6">
             {/* Left Column - Product Details */}
@@ -253,7 +310,7 @@ export default function AdminProducts() {
               disabled={createProductMutation.isPending || uploading}
               className="bg-green-600 hover:bg-green-700"
             >
-              {createProductMutation.isPending ? 'Saving...' : 'Save Product'}
+              {createProductMutation.isPending ? 'Saving...' : (editingProduct ? 'Update Product' : 'Save Product')}
             </Button>
             <Button 
               variant="destructive" 
@@ -273,6 +330,11 @@ export default function AdminProducts() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
+        <Button variant="ghost" onClick={() => navigate('/admin')} className="mb-6">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Dashboard
+        </Button>
+
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Manage Products</h1>
           <Button onClick={() => setShowAddForm(true)}>Add Product</Button>
@@ -282,9 +344,30 @@ export default function AdminProducts() {
           {products?.map((product) => (
             <Card key={product.id}>
               <CardContent className="p-4 flex justify-between items-center">
-                <div>
-                  <h3 className="font-semibold">{product.name}</h3>
-                  <p className="text-sm text-muted-foreground">₹{product.price_per_litre}/L | Stock: {product.stock_quantity}L</p>
+                <div className="flex items-center gap-4">
+                  {product.image_url && (
+                    <img src={product.image_url} alt={product.name} className="w-16 h-16 object-cover rounded" />
+                  )}
+                  <div>
+                    <h3 className="font-semibold">{product.name}</h3>
+                    <p className="text-sm text-muted-foreground">₹{product.price_per_litre}/L | Stock: {product.stock_quantity}L</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="icon" onClick={() => handleEdit(product)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="icon" 
+                    onClick={() => {
+                      if (confirm('Are you sure you want to delete this product?')) {
+                        deleteProductMutation.mutate(product.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>

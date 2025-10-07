@@ -1,5 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Heart, User, LogOut, LayoutDashboard, Shield } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { ShoppingCart, Heart, User, LogOut, LayoutDashboard, Shield, Home, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -10,10 +10,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
 export default function Navbar() {
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { data: cartCount } = useQuery({
     queryKey: ['cart-count', user?.id],
@@ -40,6 +42,34 @@ export default function Navbar() {
               OilMart
             </span>
           </Link>
+
+          {/* Navigation Tabs */}
+          {user && (
+            <div className="hidden md:flex items-center gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => navigate('/')}
+                className={cn(
+                  "gap-2",
+                  location.pathname === '/' && "bg-accent"
+                )}
+              >
+                <Home className="h-4 w-4" />
+                Home
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => navigate('/products')}
+                className={cn(
+                  "gap-2",
+                  location.pathname === '/products' && "bg-accent"
+                )}
+              >
+                <Package className="h-4 w-4" />
+                Products
+              </Button>
+            </div>
+          )}
 
           <div className="flex items-center gap-4">
             {user ? (

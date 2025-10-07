@@ -3,9 +3,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, Settings } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function AdminUsers() {
   const { isAdmin } = useAuth();
@@ -43,6 +46,11 @@ export default function AdminUsers() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
+        <Button variant="ghost" onClick={() => navigate('/admin')} className="mb-6">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Dashboard
+        </Button>
+
         <h1 className="text-3xl font-bold mb-8">User Management</h1>
         
         <Card>
@@ -61,6 +69,7 @@ export default function AdminUsers() {
                     <TableHead>Phone</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Created At</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -81,6 +90,19 @@ export default function AdminUsers() {
                       </TableCell>
                       <TableCell>
                         {new Date(user.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            // Future: Open dialog to manage user roles/permissions
+                            toast.info('User management features coming soon');
+                          }}
+                        >
+                          <Settings className="mr-2 h-4 w-4" />
+                          Manage
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
