@@ -30,6 +30,7 @@ export default function AdminProducts() {
     stock_quantity: '',
     image_url: '',
     is_active: true,
+    featured_in_offers: false,
   });
 
   const { data: products } = useQuery({
@@ -83,6 +84,7 @@ export default function AdminProducts() {
           offer_price_per_litre: formData.offer_price_per_litre ? parseFloat(formData.offer_price_per_litre) : null,
           stock_quantity: parseInt(formData.stock_quantity),
           is_active: formData.is_active,
+          featured_in_offers: formData.featured_in_offers,
         }).eq('id', editingProduct.id);
         if (error) throw error;
       } else {
@@ -94,6 +96,7 @@ export default function AdminProducts() {
           offer_price_per_litre: formData.offer_price_per_litre ? parseFloat(formData.offer_price_per_litre) : null,
           stock_quantity: parseInt(formData.stock_quantity),
           is_active: formData.is_active,
+          featured_in_offers: formData.featured_in_offers,
         });
         if (error) throw error;
       }
@@ -109,7 +112,8 @@ export default function AdminProducts() {
         offer_price_per_litre: '',
         stock_quantity: '',
         image_url: '',
-        is_active: true 
+        is_active: true,
+        featured_in_offers: false,
       });
       setImageFile(null);
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
@@ -143,6 +147,7 @@ export default function AdminProducts() {
       stock_quantity: product.stock_quantity.toString(),
       image_url: product.image_url || '',
       is_active: product.is_active,
+      featured_in_offers: product.featured_in_offers || false,
     });
     setShowAddForm(true);
   };
@@ -177,6 +182,7 @@ export default function AdminProducts() {
                 stock_quantity: '',
                 image_url: '',
                 is_active: true,
+                featured_in_offers: false,
               });
             }}
             className="mb-6"
@@ -295,6 +301,13 @@ export default function AdminProducts() {
                     <Switch 
                       checked={formData.is_active} 
                       onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })} 
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label>Featured in Offers Section</Label>
+                    <Switch 
+                      checked={formData.featured_in_offers} 
+                      onCheckedChange={(checked) => setFormData({ ...formData, featured_in_offers: checked })} 
                     />
                   </div>
                 </div>
